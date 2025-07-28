@@ -28,7 +28,7 @@ const baseUrl = `https://api.bigcommerce.com/stores/${storeHash}/v2/orders/${ord
     const headers = {
       'X-Auth-Token': token,
       'Content-Type': 'application/json',
-      Accept: 'application/json',
+      'Accept': 'application/json',
     };
  
     // Step 1: Get main order details
@@ -40,7 +40,7 @@ const baseUrl = `https://api.bigcommerce.com/stores/${storeHash}/v2/orders/${ord
  
     const orderDetails: Record<string, unknown> = await orderRes.json();
  
-    // Step 2: Get sub-resources
+    // Step 2: Fetch sub-resources (with safe parsing)
     const subEndpoints = ['products', 'fees', 'shipping_addresses', 'consignments', 'coupons'];
     const subData: Record<string, unknown> = {};
  
@@ -48,18 +48,21 @@ const baseUrl = `https://api.bigcommerce.com/stores/${storeHash}/v2/orders/${ord
       subEndpoints.map(async (key) => {
         try {
           const res = await fetch(`${baseUrl}/${key}`, { headers });
+ 
           if (res.ok) {
-            subData[key] = await res.json();
+            const text = await res.text();
+            subData[key] = text ? JSON.parse(text) : [];
           } else {
             subData[key] = { error: `Failed to fetch ${key}` };
           }
         } catch (err) {
-          console.error(`Error fetching ${key}:`, err);
+          console.error(`❌ Error fetching ${key}:`, err);
           subData[key] = { error: `Exception fetching ${key}` };
         }
       })
     );
  
+    // Combine all data
     const fullOrder = {
       ...orderDetails,
       ...subData,
@@ -71,13 +74,13 @@ const baseUrl = `https://api.bigcommerce.com/stores/${storeHash}/v2/orders/${ord
  
   } catch (error: unknown) {
     if (error instanceof Error) {
-      console.error("❌ Failed to process webhook:", error.message);
+      console.error('❌ Failed to process order:', error.message);
     } else {
-      console.error("❌ Unknown error:", error);
+      console.error('❌ Unknown error:', error);
     }
  
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
