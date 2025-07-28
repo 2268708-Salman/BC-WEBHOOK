@@ -52,11 +52,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             subData[key] = { error: `Failed to fetch ${key}` };
           }
         } catch (e) {
-          subData[key] = { error: `Exception while fetching ${key}` };
-        }
+            console.error('Error processing order:', e);
+            return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+          }
       })
     );
- 
     // Combine all data
     const fullOrder = {
       ...orderDetails,
