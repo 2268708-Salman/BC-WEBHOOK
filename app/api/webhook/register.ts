@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
  
-export async function GET(req: NextRequest) {
+export async function GET() {
   const storeHash = "odoo5yipek";
   const accessToken = "9n9pesj0pgfcn49wukqcbruar6tcxt4";
  
