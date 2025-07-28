@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
  
 export async function POST(req: NextRequest): Promise<NextResponse> {
+    console.log("✅ Webhook received at /api/webhook");
   try {
     const body = await req.json();
     const orderId = body?.data?.id;
