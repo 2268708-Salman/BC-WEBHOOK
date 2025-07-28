@@ -1,77 +1,64 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
  
-export async function POST(req: NextRequest): Promise<NextResponse> { console.log("✅ Webhook received at /api/webhook");
+const apiUrl = "https://api.bigcommerce.com/stores/YOUR_STORE_HASH/v2"; // or v3 if you're using v3
+const token = process.env.BIGCOMMERCE_API_TOKEN!;
  
-try { const rawBody = await req.text(); const body = JSON.parse(rawBody); const orderId = body?.data?.id;
- 
-if (!orderId) {
-  return NextResponse.json({ error: 'Order ID not found in webhook' }, { status: 400 });
-}
- 
-const storeHash = process.env.BC_STORE_HASH;
-const token = process.env.BC_API_TOKEN;
- 
-if (!storeHash || !token) {
-  return NextResponse.json({ error: 'Missing BigCommerce credentials' }, { status: 500 });
-}
- 
-const headers = {
-  'X-Auth-Token': token,
-  'Content-Type': 'application/json',
-  Accept: 'application/json',
-};
- 
-const baseUrl = `https://api.bigcommerce.com/stores/${storeHash}/v2/orders/${orderId}`;
- 
-// Step 1: Get main order details
-const orderRes = await fetch(baseUrl, { headers });
-if (!orderRes.ok) {
-  throw new Error(`Order fetch failed: ${orderRes.status}`);
-}
-const orderDetails = await orderRes.json();
- 
-// Step 2: Get sub-resources
-const subEndpoints = ['products', 'fees', 'shipping_addresses', 'consignments', 'coupons', 'billing_address'];
-const subData: Record<string, unknown> = {};
- 
-for (const key of subEndpoints) {
+async function safeFetch(url: string) {
   try {
-    const res = await fetch(`${baseUrl}/${key}`, { headers });
-    if (res.ok) {
-      subData[key] = await res.json();
-    } else {
-      subData[key] = { error: `Failed to fetch ${key}` };
+    const response = await fetch(url, {
+      headers: {
+        "X-Auth-Token": token,
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+    });
+ 
+    const text = await response.text();
+    if (!text) {
+      return null; // Nothing to parse
     }
-  } catch (err) {
-    console.error(`❌ Error fetching ${key}:`, err);
-    subData[key] = { error: `Exception while fetching ${key}` };
+ 
+    return JSON.parse(text);
+  } catch (error) {
+    console.error(`Error fetching ${url}:`, error);
+    return null;
   }
 }
  
-// Step 3: Fetch customer details if customer_id exists
-let customerDetails = null;
-if (orderDetails.customer_id) {
+export async function POST(req: NextRequest) {
   try {
-const customerRes = await fetch(`https://api.bigcommerce.com/stores/${storeHash}/v3/customers/${orderDetails.customer_id}`, { headers });
-    if (customerRes.ok) {
-      const customerJson = await customerRes.json();
-      customerDetails = customerJson.data;
-    } else {
-      console.error('❌ Failed to fetch customer details');
+    const body = await req.json();
+    const orderId = body?.data?.id;
+ 
+    if (!orderId) {
+      return NextResponse.json({ error: "Missing order ID" }, { status: 400 });
     }
+ 
+    // 1. Fetch main order
+    const order = await safeFetch(`${apiUrl}/orders/${orderId}`);
+ 
+    // 2. Fetch related resources
+    const customerId = order?.customer_id;
+    const customer = customerId
+      ? await safeFetch(`${apiUrl}/customers/${customerId}`)
+      : null;
+ 
+    const fees = await safeFetch(`${apiUrl}/orders/${orderId}/fees`);
+    const coupons = await safeFetch(`${apiUrl}/orders/${orderId}/coupons`);
+    const products = await safeFetch(`${apiUrl}/orders/${orderId}/products`);
+ 
+    // 3. Log final result
+    console.log("✅ Full Order Details with Customer:", {
+      order,
+      customer,
+      fees,
+      coupons,
+      products,
+    });
+ 
+    return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('❌ Exception while fetching customer details:', err);
+    console.error("❌ Webhook Error:", err);
+    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
   }
 }
- 
-// Combine all data
-const fullOrder = {
-  ...orderDetails,
-  ...subData,
-  customer: customerDetails,
-};
- 
-console.log('✅ Full Order Details with Customer:', JSON.stringify(fullOrder, null, 2));
-return NextResponse.json({ message: 'Order processed', order: fullOrder });
- 
-} catch (error: unknown) { if (error instanceof Error) { console.error('❌ Failed to process order:', error.message); } else { console.error('❌ Unknown error:', error); } return NextResponse.json({ error: 'Internal server error' }, { status: 500 }); } }
