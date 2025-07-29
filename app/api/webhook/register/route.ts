@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
  
-async function registerWebhook() {
+export async function GET() {
   const storeHash = process.env.BC_STORE_HASH;
-  const token = process.env.BC_API_TOKEN;
+  const token = process.env.BIGCOMMERCE_API_TOKEN;
   const domain = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL;
  
   if (!storeHash || !token || !domain) {
@@ -20,7 +20,7 @@ const url = `https://api.bigcommerce.com/stores/${storeHash}/v3/hooks`;
     scope: 'store/order/created',
     destination: `https://${domain}/api/webhook`,
     is_active: true,
-    events_history_enabled: true, // Include for replaying past events
+    events_history_enabled: true,
   };
  
   const res = await fetch(url, {
@@ -38,14 +38,4 @@ const url = `https://api.bigcommerce.com/stores/${storeHash}/v3/hooks`;
  
   console.log('✅ Webhook registered:', data);
   return NextResponse.json({ message: 'Webhook registered', data });
-}
- 
-// 🔄 Support GET method for testing from browser or Postman
-export async function GET() {
-  return registerWebhook();
-}
- 
-// 🔄 Optional: also allow POST to register via backend or script
-export async function POST() {
-  return registerWebhook();
 }
