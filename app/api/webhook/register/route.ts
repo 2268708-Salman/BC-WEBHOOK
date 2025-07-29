@@ -20,6 +20,7 @@ const url = `https://api.bigcommerce.com/stores/${storeHash}/v3/hooks`;
     scope: 'store/order/created',
     destination: `https://${domain}/api/webhook`,
     is_active: true,
+    events_history_enabled: true, // ✅ This line added
   };
  
   const res = await fetch(url, {
@@ -29,6 +30,7 @@ const url = `https://api.bigcommerce.com/stores/${storeHash}/v3/hooks`;
   });
  
   const data = await res.json();
+ 
   if (!res.ok) {
     console.error('❌ Webhook registration failed:', data);
     return NextResponse.json({ error: 'Failed to register webhook', data }, { status: 500 });
