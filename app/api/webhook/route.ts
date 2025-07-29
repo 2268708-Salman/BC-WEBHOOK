@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
  
-const apiUrl = "https://api.bigcommerce.com/stores/YOUR_STORE_HASH/v2"; // or v3 if you're using v3
+// ✅ Secure: Load store hash and API token from environment variables
+const storeHash = process.env.BC_STORE_HASH!;
 const token = process.env.BIGCOMMERCE_API_TOKEN!;
  
+// ✅ API base URL
+const apiUrl = `https://api.bigcommerce.com/stores/${storeHash}/v2`;
+ 
+// 🔁 Utility: Safe fetch with error handling
 async function safeFetch(url: string) {
   try {
     const response = await fetch(url, {
@@ -14,9 +19,7 @@ async function safeFetch(url: string) {
     });
  
     const text = await response.text();
-    if (!text) {
-      return null; // Nothing to parse
-    }
+    if (!text) return null;
  
     return JSON.parse(text);
   } catch (error) {
@@ -25,6 +28,7 @@ async function safeFetch(url: string) {
   }
 }
  
+// 📦 Webhook handler
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -34,10 +38,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing order ID" }, { status: 400 });
     }
  
-    // 1. Fetch main order
+    // 1️⃣ Main order
     const order = await safeFetch(`${apiUrl}/orders/${orderId}`);
  
-    // 2. Fetch related resources
+    // 2️⃣ Related resources
     const customerId = order?.customer_id;
     const customer = customerId
       ? await safeFetch(`${apiUrl}/customers/${customerId}`)
@@ -47,16 +51,12 @@ export async function POST(req: NextRequest) {
     const coupons = await safeFetch(`${apiUrl}/orders/${orderId}/coupons`);
     const products = await safeFetch(`${apiUrl}/orders/${orderId}/products`);
  
-    // 3. Log final result
-    console.log("✅ Full Order Details with Customer:", {
-      order,
-      customer,
-      fees,
-      coupons,
-      products,
-    });
+    // 3️⃣ Combine
+    const fullData = { order, customer, fees, coupons, products };
  
-    return NextResponse.json({ success: true });
+    console.log("✅ Full Order Details with Customer:", fullData);
+ 
+    return NextResponse.json({ success: true, data: fullData });
   } catch (err) {
     console.error("❌ Webhook Error:", err);
     return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
