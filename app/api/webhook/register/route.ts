@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
  
-export async function POST() {
+export async function GET() {
   const storeHash = process.env.BC_STORE_HASH;
   const token = process.env.BC_API_TOKEN;
   const domain = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL;
